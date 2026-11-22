@@ -116,10 +116,8 @@ async def test_close_releases_connections_and_later_requests_reconnect(fake: Fak
     async def report(request: Request) -> str:
         return "paid"
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app), base_url="http://testserver"
-    ) as client:
-        assert (await client.get("/report")).status_code == 402
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app)) as client:
+        assert (await client.get("http://testserver/report")).status_code == 402
         await mitu.close()
-        assert (await client.get("/report")).status_code == 402
+        assert (await client.get("http://testserver/report")).status_code == 402
     await mitu.close()

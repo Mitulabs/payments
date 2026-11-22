@@ -11,7 +11,7 @@ from ._version import __version__
 from .errors import MituConfigError
 
 TIMEOUT_SECONDS: Final = 10.0
-PAYMENTS_PATH: Final = "/v1/public/payments"
+PAYMENTS_PATH: Final = "/v1/payments"
 
 _USER_AGENT: Final = f"mitulabs-payments-python/{__version__}"
 
@@ -25,9 +25,9 @@ class MituApi:
     agent's payment headers and nothing else. Redirects are never followed.
     """
 
-    def __init__(self, api_key: str, base_url: str, *, transport: Transport | None = None) -> None:
+    def __init__(self, api_key: str, api_url: str, *, transport: Transport | None = None) -> None:
         self._api_key = api_key
-        self._payments_url = f"{base_url}{PAYMENTS_PATH}"
+        self._payments_url = f"{api_url}{PAYMENTS_PATH}"
         self._transport = transport
         self._timeout = httpx.Timeout(TIMEOUT_SECONDS).as_dict()
         self._lock = threading.Lock()
@@ -50,7 +50,7 @@ class MituApi:
 
     def send(self, request: httpx.Request) -> httpx.Response:
         with self._lock:
-            if self._client is None:
+            if not self._client:
                 self._client = httpx.Client(
                     follow_redirects=False, transport=self._typed(httpx.BaseTransport)
                 )

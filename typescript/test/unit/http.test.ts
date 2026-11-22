@@ -9,7 +9,7 @@ function clientReturning(response: Response | Error) {
     if (response instanceof Error) throw response
     return response
   })
-  return { fetch, client: createHttpClient({ apiKey: API_KEY, baseUrl: 'https://mitu.test/economy', fetch }) }
+  return { fetch, client: createHttpClient({ apiKey: API_KEY, baseUrl: 'https://mitu.test', fetch }) }
 }
 
 describe('createHttpClient', () => {
@@ -20,7 +20,7 @@ describe('createHttpClient', () => {
 
     expect(result).toEqual({ status: 'received' })
     const [url, init] = fetch.mock.calls[0] ?? []
-    expect(url).toBe('https://mitu.test/economy/v1/x')
+    expect(url).toBe('https://mitu.test/v1/x')
     expect(init?.redirect).toBe('manual')
     expect(init?.body).toBe('{"a":1}')
     expect(init?.headers).toMatchObject({

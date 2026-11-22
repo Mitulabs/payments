@@ -1,4 +1,3 @@
-import { isAllowedUrl } from './environment.js'
 import { MituApiError } from './errors.js'
 import { isRecord } from './guards.js'
 import type { HttpClient } from './http.js'
@@ -33,11 +32,11 @@ export function createPayments(http: HttpClient): Payments {
   return {
     async create({ amount, currency, reference, description, expiresAt, metadata }) {
       const body = { amount: Number(amount), currency, reference, description, expires_at: expiresAt.toISOString(), metadata }
-      return paymentOf(await http.request({ method: 'POST', path: '/v1/public/payments', body }))
+      return paymentOf(await http.request({ method: 'POST', path: '/v1/payments', body }))
     },
     async get(id) {
       try {
-        return paymentOf(await http.request({ method: 'GET', path: `/v1/public/payments/${encodeURIComponent(id)}` }))
+        return paymentOf(await http.request({ method: 'GET', path: `/v1/payments/${encodeURIComponent(id)}` }))
       } catch (error) {
         if (error instanceof MituApiError && error.status === 404) return null
         throw error
@@ -56,8 +55,7 @@ function paymentOf(payload: unknown): PaymentRecord {
       typeof amount === 'string' &&
       typeof currency === 'string' &&
       typeof reference === 'string' &&
-      agentUrl &&
-      isAllowedUrl(agentUrl)
+      agentUrl?.protocol === 'https:'
     ) {
       return { id, amount, currency, reference, metadata: stringsOf(metadata), agentUrl: agentUrl.href }
     }

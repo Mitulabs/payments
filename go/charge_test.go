@@ -134,8 +134,8 @@ func TestUnpaidRequestCreatesPaymentAndRelaysMitu402(t *testing.T) {
 	}
 
 	create := calls[0]
-	if create.Agent || create.Method != http.MethodPost || create.Path != "/v1/public/payments" {
-		t.Fatalf("first call = %s %s", create.Method, create.Path)
+	if create.Agent || create.Host != "sandbox.mitu.ai" || create.Method != http.MethodPost || create.Path != "/v1/payments" {
+		t.Fatalf("first call = %s %s%s", create.Method, create.Host, create.Path)
 	}
 	if got := create.Header.Get("X-Api-Key"); got != mitutest.APIKey {
 		t.Errorf("x-api-key = %q", got)
@@ -174,7 +174,7 @@ func TestUnpaidRequestCreatesPaymentAndRelaysMitu402(t *testing.T) {
 
 	fetch := calls[1]
 	payment := f.Payments()[0]
-	if !fetch.Agent || fetch.Method != http.MethodGet || fetch.Path != "/pay/"+payment.ID {
+	if !fetch.Agent || fetch.Host != mitutest.AgentHost || fetch.Method != http.MethodGet || fetch.Path != "/pay/"+payment.ID {
 		t.Fatalf("second call = %s %s on agent %v", fetch.Method, fetch.Path, fetch.Agent)
 	}
 	for _, h := range []string{"X-Api-Key", "Authorization", "Payment-Signature", "X-Payment", "Cookie"} {
@@ -295,7 +295,7 @@ func TestPaidRequestIsServed(t *testing.T) {
 			if len(calls) != 2 {
 				t.Fatalf("paid calls = %d, want fetch then settle", len(calls))
 			}
-			if c := calls[0]; c.Agent || c.Method != http.MethodGet || c.Path != "/v1/public/payments/"+payment.ID || c.Header.Get("X-Api-Key") != mitutest.APIKey {
+			if c := calls[0]; c.Agent || c.Method != http.MethodGet || c.Host != "sandbox.mitu.ai" || c.Path != "/v1/payments/"+payment.ID || c.Header.Get("X-Api-Key") != mitutest.APIKey {
 				t.Errorf("fetch = %s %s on agent %v", c.Method, c.Path, c.Agent)
 			}
 			settle := calls[1]
@@ -600,11 +600,9 @@ func TestChargePanicsOnInvalidPrice(t *testing.T) {
 func TestNewRejectsInvalidOptions(t *testing.T) {
 	t.Parallel()
 	for name, opts := range map[string]mitu.Options{
-		"missing key":      {},
-		"publishable key":  {APIKey: "pk_test_abcdefghijklmnop"},
-		"bad currency":     {APIKey: mitutest.APIKey, DefaultCurrency: "N1"},
-		"plain http":       {APIKey: mitutest.APIKey, BaseURL: "http://api.mitu.ai"},
-		"relative baseURL": {APIKey: mitutest.APIKey, BaseURL: "/v1"},
+		"missing key":     {},
+		"publishable key": {APIKey: "pk_test_abcdefghijklmnop"},
+		"bad currency":    {APIKey: mitutest.APIKey, DefaultCurrency: "N1"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := mitu.New(t.Context(), opts); !errors.Is(err, mitu.ErrConfig) {

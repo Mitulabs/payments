@@ -49,7 +49,7 @@ describe('an unpaid request', () => {
 
     const [create, challenge] = api.calls
     expect(create?.method).toBe('POST')
-    expect(create?.url.href).toBe(`${BASE_URL}/v1/public/payments`)
+    expect(create?.url.href).toBe(`${BASE_URL}/v1/payments`)
     expect(create?.headers.get('x-api-key')).toBe(API_KEY)
     expect(create?.body).toMatchObject({
       amount: 0.05,
@@ -117,7 +117,7 @@ describe('a paid request', () => {
 
     const [lookup, settle] = api.calls
     expect(lookup?.method).toBe('GET')
-    expect(lookup?.url.href).toBe(`${BASE_URL}/v1/public/payments/pmt_00000000000000000001`)
+    expect(lookup?.url.href).toBe(`${BASE_URL}/v1/payments/pmt_00000000000000000001`)
     expect(settle?.url.href).toBe(`${AGENT_ORIGIN}/pay/pmt_00000000000000000001`)
     expect(settle?.headers.get(header)).toBe(credential)
     expect(settle?.headers.has('x-api-key')).toBe(false)
@@ -189,7 +189,7 @@ describe('a credential that does not pay for this request', () => {
     api.calls.length = 0
     const response = refused(await mitu.admit(request, terms))
     expect(response.status).toBe(402)
-    expect(api.calls.map((call) => `${call.method} ${call.url.pathname}`)).toContain('POST /economy/v1/public/payments')
+    expect(api.calls.map((call) => `${call.method} ${call.url.pathname}`)).toContain('POST /v1/payments')
     expect(api.agentCalls().every((call) => !call.headers.has('authorization') && !call.headers.has('payment-signature'))).toBe(true)
   }
 
@@ -414,19 +414,20 @@ describe('secrets', () => {
 describe('createMitu', () => {
   it.each([
     [{ apiKey: 'pk_live_0123456789abcdef' }],
-    [{ apiKey: API_KEY, baseUrl: 'http://api.mitu.ai' }],
     [{ apiKey: API_KEY, defaultCurrency: 'dollars!' }],
   ])('refuses invalid options %#', (options) => {
     expect(() => createMitu(options)).toThrow(MituConfigError)
   })
 
-  it('calls the Mitu API at api.mitu.ai/economy by default', async () => {
+  it.each([
+    [`sk_live_${'0123456789abcdef'.repeat(2)}`, 'https://api.mitu.ai/v1/payments'],
+    [API_KEY, 'https://sandbox.mitu.ai/v1/payments'],
+  ])('calls the Mitu API for the key %s', async (apiKey, url) => {
     const api = fakeMitu()
-    const mitu = createMitu({ apiKey: API_KEY, fetch: api.fetch })
 
-    await mitu.admit(get(), price).catch(() => undefined)
+    await createMitu({ apiKey, fetch: api.fetch }).admit(get(), price).catch(() => undefined)
 
-    expect(api.calls[0]?.url.href).toBe('https://api.mitu.ai/economy/v1/public/payments')
+    expect(api.calls[0]?.url.href).toBe(url)
   })
 
   it('refuses an invalid price when a request is gated', async () => {

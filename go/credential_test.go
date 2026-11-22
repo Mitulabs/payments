@@ -83,7 +83,7 @@ func TestReadCredentialWithoutPaymentID(t *testing.T) {
 		"no opaque":             {"Authorization": {"Payment " + mppToken(t, nil)}},
 		"opaque without scope":  {"Authorization": {"Payment " + mppToken(t, b64JSON(t, base64.RawURLEncoding, map[string]string{"k": "v"}))}},
 		"opaque not base64":     {"Authorization": {"Payment " + mppToken(t, "%%%")}},
-		"scope not an id":       {"Authorization": {"Payment " + mppToken(t, map[string]string{"_mppx_scope": "../v1/public/payments"})}},
+		"scope not an id":       {"Authorization": {"Payment " + mppToken(t, map[string]string{"_mppx_scope": "../v1/payments"})}},
 		"mitu parameters":       {"Authorization": {`Payment id="pmt_abc123", method="tempo"`}},
 		"x402 garbage":          {"Payment-Signature": {"garbage"}},
 		"x402 without resource": {"Payment-Signature": {b64JSON(t, base64.StdEncoding, map[string]any{"x402Version": 2})}},
@@ -114,12 +114,15 @@ func TestReadCredentialAbsent(t *testing.T) {
 }
 
 func TestCheckAgentURL(t *testing.T) {
-	for _, ok := range []string{"https://api.mitu.ai/pay/pmt_1", "http://127.0.0.1:8080/pay/pmt_1", "http://localhost/pay/pmt_1"} {
+	for _, ok := range []string{"https://api.mitu.ai/pay/pmt_1", "https://sandbox.mitu.ai/pay/pmt_1"} {
 		if err := checkAgentURL(ok); err != nil {
 			t.Errorf("checkAgentURL(%q) = %v", ok, err)
 		}
 	}
-	for _, bad := range []string{"", "/pay/pmt_1", "http://api.mitu.ai/pay/pmt_1", "ftp://api.mitu.ai/x", "https://user:pw@api.mitu.ai/pay/pmt_1"} {
+	for _, bad := range []string{
+		"", "/pay/pmt_1", "http://api.mitu.ai/pay/pmt_1", "http://127.0.0.1:8080/pay/pmt_1", "http://localhost/pay/pmt_1",
+		"ftp://api.mitu.ai/x", "https://user:pw@api.mitu.ai/pay/pmt_1",
+	} {
 		if err := checkAgentURL(bad); err == nil {
 			t.Errorf("checkAgentURL(%q) accepted", bad)
 		}

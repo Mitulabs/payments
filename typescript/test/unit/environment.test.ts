@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assertApiKey, resolveBaseUrl } from '../../src/core/environment.js'
+import { apiUrlFor, assertApiKey } from '../../src/core/environment.js'
 import { MituConfigError } from '../../src/core/errors.js'
 
 describe('assertApiKey', () => {
@@ -26,24 +26,10 @@ describe('assertApiKey', () => {
   })
 })
 
-describe('resolveBaseUrl', () => {
-  it('defaults to the Mitu API behind the gateway', () => {
-    expect(resolveBaseUrl()).toBe('https://api.mitu.ai/economy')
-  })
-
-  it('keeps the path and drops a trailing slash, query and fragment', () => {
-    expect(resolveBaseUrl('https://mitu.test/economy/?x=1#y')).toBe('https://mitu.test/economy')
-    expect(resolveBaseUrl('https://mitu.test')).toBe('https://mitu.test')
-  })
-
-  it('accepts plain http to this machine', () => {
-    expect(resolveBaseUrl('http://localhost:4003')).toBe('http://localhost:4003')
-    expect(resolveBaseUrl('http://127.0.0.1:4003')).toBe('http://127.0.0.1:4003')
-    expect(resolveBaseUrl('http://[::1]:4003')).toBe('http://[::1]:4003')
-  })
-
-  it.each(['http://api.mitu.ai', 'http://localhost.evil.com', 'ftp://api.mitu.ai', 'not a url'])('refuses %s', (url) => {
-    expect(() => resolveBaseUrl(url)).toThrow(MituConfigError)
+describe('apiUrlFor', () => {
+  it('sends live keys to production and test keys to the sandbox', () => {
+    expect(apiUrlFor(`sk_live_${'0123456789abcdef'.repeat(2)}`)).toBe('https://api.mitu.ai')
+    expect(apiUrlFor('sk_test_0123456789abcdef0123456789abcdef')).toBe('https://sandbox.mitu.ai')
   })
 })
 

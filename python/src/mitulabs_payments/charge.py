@@ -9,13 +9,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Final, cast
+from urllib.parse import urlsplit
 
 import httpx
 
 from ._version import __version__
 from .api import MituApi
 from .credentials import Credential, credential_of
-from .environment import is_secure_url
 from .errors import MituApiError
 from .models import Incoming, Outcome, Paid, Payment, Price, Reply
 
@@ -165,7 +165,7 @@ def _stored(data: Mapping[str, object]) -> _Stored:
             "amount": str(amount),
             "currency": str(currency),
             "agent_url": str(agent_url),
-        } if (value := _decimal(amount)) is not None and is_secure_url(agent_url):
+        } if (value := _decimal(amount)) is not None and _is_https(agent_url):
             metadata = data.get("metadata")
             return _Stored(
                 payment_id,
@@ -176,6 +176,15 @@ def _stored(data: Mapping[str, object]) -> _Stored:
                 metadata if isinstance(metadata, dict) else {},
             )
     raise _Unavailable("Mitu API answered with an unreadable payment")
+
+
+def _is_https(url: str) -> bool:
+    try:
+        parts = urlsplit(url)
+        _ = parts.port
+    except ValueError:
+        return False
+    return parts.scheme == "https" and bool(parts.hostname)
 
 
 def _payment(stored: _Stored, response: httpx.Response) -> Payment:

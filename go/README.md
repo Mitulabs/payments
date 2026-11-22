@@ -1,17 +1,7 @@
-# Mitu Payments SDK for Go
+# Mitu Payments for Go
 
-Go SDK for monetizing HTTP APIs with machine payments. It requires payment per request from AI agents through the
-[Machine Payments Protocol](https://mpp.dev) (MPP) and [x402](https://x402.org), using Mitu's existing payment flow.
-
-Mitu issues the payment challenges, settles each payment on chain as the facilitator, locks the exchange rate when the
-payment is created, and notifies the merchant with the `payment.completed` webhook. The SDK creates a Mitu payment for
-each charged request, relays Mitu's `402 Payment Required` response to the agent, and serves the route once Mitu has
-settled the agent's payment. It does not verify payments, hold receiving addresses or quote exchange rates.
-
-## Requirements
-
-- Go 1.26 or later
-- No dependencies outside the standard library
+Charge for API requests with machine payments. Mitu's Go SDK puts any route behind a per-request payment that AI agents
+and other clients pay with the [Machine Payments Protocol](https://mpp.dev) (MPP) or [x402](https://x402.org).
 
 ## Installation
 
@@ -19,39 +9,19 @@ settled the agent's payment. It does not verify payments, hold receiving address
 go get github.com/mitulabs/payments/go
 ```
 
-## Configuration
+Requires Go 1.26 or later. The core module depends only on the standard library.
+
+## Quick start
 
 ```go
 import mitu "github.com/mitulabs/payments/go"
 
-m, err := mitu.New(ctx, mitu.Options{
-	APIKey:          os.Getenv("MITU_API_KEY"),
-	DefaultCurrency: "NGN",
-})
+m, err := mitu.New(ctx, mitu.Options{APIKey: os.Getenv("MITU_API_KEY")})
 if err != nil {
 	log.Fatal(err)
 }
-```
 
-`New` validates the options and makes no network call, so a service starts even when Mitu is unreachable. Invalid
-options return an error wrapping `ErrConfig`.
-
-### Options
-
-| Field | Default | Description |
-| --- | --- | --- |
-| `APIKey` | required | Mitu secret key. `sk_test_` selects the sandbox, `sk_live_` production. Sent only to the Mitu API. |
-| `DefaultCurrency` | `"USD"` | Currency for prices that do not specify one. |
-| `BaseURL` | by key | Mitu API origin. Must use HTTPS unless it points at the local machine. |
-| `HTTPClient` | default | Client for calls to Mitu. Redirects are never followed; every call times out after 10 seconds. |
-| `Logger` | discard | `*slog.Logger` for SDK logs. |
-
-## Usage
-
-### net/http and chi
-
-```go
-mux.Handle("GET /v1/search", m.Charge(mitu.Price{Amount: "0.50", Currency: "USD"})(http.HandlerFunc(search)))
+mux.Handle("GET /v1/search", m.Charge(mitu.Price{Amount: "0.05"})(http.HandlerFunc(search)))
 
 func search(w http.ResponseWriter, r *http.Request) {
 	payment, _ := mitu.PaymentFromContext(r.Context())
@@ -59,14 +29,38 @@ func search(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-### Gin, Echo and Fiber
+An unpaid request receives `402 Payment Required` with MPP and x402 payment options. Once the client pays, the handler
+runs and the response carries the payment receipt.
 
-Each framework adapter is a separate module, so the core module does not depend on any web framework:
+## Environments
+
+The secret key selects the environment.
+
+| Key | Environment |
+| --- | --- |
+| `sk_live_...` | Production |
+| `sk_test_...` | Sandbox |
+
+## Configuration
+
+| Field | Default | Description |
+| --- | --- | --- |
+| `APIKey` | required | Mitu secret key. |
+| `DefaultCurrency` | `"USD"` | Currency for prices that do not specify one. |
+| `HTTPClient` | default client | Client used for calls to Mitu. |
+| `Logger` | discard | `*slog.Logger` for SDK logs. |
+
+`New` returns an error wrapping `ErrConfig` when the options are invalid.
+
+## Frameworks
+
+`Charge` returns standard `net/http` middleware, which also works with chi. Gin, Echo and Fiber have adapters in their
+own modules, so the core module never depends on a web framework.
 
 ```go
 import mitugin "github.com/mitulabs/payments/go/gin"
 
-router.GET("/v1/search", mitugin.Charge(m, mitu.Price{Amount: "0.50", Currency: "USD"}), search)
+router.GET("/v1/search", mitugin.Charge(m, mitu.Price{Amount: "0.05"}), search)
 ```
 
 | Framework | Module | Package |
@@ -75,55 +69,49 @@ router.GET("/v1/search", mitugin.Charge(m, mitu.Price{Amount: "0.50", Currency: 
 | Echo v5 | `github.com/mitulabs/payments/go/echo` | `mituecho` |
 | Fiber v3 | `github.com/mitulabs/payments/go/fiber` | `mitufiber` |
 
-## Request flow
-
-1. **Unpaid request.** The SDK creates a Mitu payment for the route's price, bound to the request's method and path
-   and valid for 15 minutes, and returns Mitu's `402` response with its MPP (`WWW-Authenticate`) and x402
-   (`PAYMENT-REQUIRED`) challenges.
-2. **Paid retry.** The agent retries with its credential. The SDK reads the Mitu payment the credential answers and
-   checks that it belongs to the merchant and was created for this method, path, amount and currency. A credential
-   that fails this check, or cannot be read, receives a fresh `402`.
-3. **Settlement.** The SDK forwards the credential, and only the credential, to the payment's `agent_url`. Mitu
-   settles the payment and returns its receipt. The handler then runs, and Mitu's receipt headers (`Payment-Receipt`
-   for MPP, `PAYMENT-RESPONSE` for x402) are added to its response.
-4. **Refusal.** If Mitu refuses the payment, for example a replayed credential (`403`) or an expired or already paid
-   payment (`409`, `410`), its status, protocol headers and problem body are returned unchanged and the handler does
-   not run.
-
-Responses that carry payment state are sent with `Cache-Control: no-store`.
-
 ## Pricing
 
-Set exactly one of `Price.Amount` and `Price.AmountFunc`. Amounts are decimal strings greater than zero with at most
-two decimal places, such as `"5000"` or `"12.50"`; money never passes through floating point.
+```go
+mitu.Price{Amount: "0.05"}
+mitu.Price{Amount: "2500", Currency: "NGN", Description: "Search"}
+mitu.Price{AmountFunc: func(r *http.Request) (string, error) {
+	if isPremium(r) {
+		return "1.00", nil
+	}
+	return "0.10", nil
+}}
+```
 
-`Price.AmountFunc` computes the amount from the request. It is evaluated on the initial request and on the paid retry
-and must return the same amount for both; it must never read the amount from the request body. Returning `""` serves
-the request without payment, and returning an error responds `500 Internal Server Error`.
+- Set exactly one of `Amount` and `AmountFunc`. Amounts are decimal strings greater than zero with up to two decimal
+  places.
+- `AmountFunc` runs on the first request and on the paid retry, and must return the same amount both times. Returning
+  `""` serves the request free.
+- Derive prices from server-side state, never from the request body.
+- Prices in other currencies are converted at the rate locked when the payment is created.
+- `Charge` panics at route registration if a price or its currency is invalid.
 
-`Charge` panics at route registration if a price or its currency is invalid.
+## Payment
 
-## Payments
+`PaymentFromContext` returns the settled payment and `true`, or `false` for a free request:
 
-`PaymentFromContext` returns the settled `Payment` for the request: Mitu's payment `ID` and `Reference`, `TxHash`,
-`AmountPaid`, `Currency`, `Network` and `PaymentMethod`. It reports `false` for a request served without payment.
-Use Mitu's `payment.completed` webhook as the system of record for fulfilment and reconciliation.
+| Field | Description |
+| --- | --- |
+| `ID` | Payment ID, as sent in the `payment.completed` webhook |
+| `Reference` | Payment reference |
+| `TxHash` | Settlement transaction hash, when the payment method has one |
+| `AmountPaid` | Amount paid |
+| `Currency` | Currency of `AmountPaid` |
+| `Network` | Settlement network |
+| `PaymentMethod` | Payment method |
 
-## Availability
+A settled payment is final. If the handler fails after payment, retry the work or refund the payment rather than
+asking the client to pay again.
 
-If Mitu cannot be reached, or answers with a server error, the route responds `503 Service Unavailable` with
-`Retry-After: 5` and is never served unpaid. If Mitu refuses the SDK's own request, for example an invalid API key,
-the route responds `500 Internal Server Error` and logs the cause.
+## Errors
 
-## Security
-
-- The API key is sent only to the Mitu API as `x-api-key`. It is never sent to `agent_url`, logged or included in
-  errors.
-- Only the payment credential header is forwarded to `agent_url`; cookies and other request headers are not.
-- Only Mitu's protocol and receipt headers are copied back to the agent.
-- Logs never contain keys, credentials, receipts or bodies.
-
-Report vulnerabilities to security@mitu.ai.
+If Mitu is temporarily unavailable, the route responds `503 Service Unavailable` with `Retry-After` and is not served
+unpaid. If Mitu rejects a request, for example because the key was revoked, the route responds
+`500 Internal Server Error` and logs the cause.
 
 ## License
 
