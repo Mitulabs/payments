@@ -1,0 +1,33 @@
+name: go
+
+on:
+  pull_request:
+    paths: [go/**, .github/workflows/go.yml]
+  push:
+    branches: [main]
+    paths: [go/**, .github/workflows/go.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: [go, go/gin, go/echo, go/fiber]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          check-latest: true
+          cache-dependency-path: ${{ matrix.module }}/go.mod
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test -race ./...
+      - run: go run honnef.co/go/tools/cmd/staticcheck@2026.2.2 ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...

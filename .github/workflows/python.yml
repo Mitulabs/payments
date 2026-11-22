@@ -1,0 +1,33 @@
+name: python
+
+on:
+  pull_request:
+    paths: [python/**, .github/workflows/python.yml]
+  push:
+    branches: [main]
+    paths: [python/**, .github/workflows/python.yml]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: python
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.12', '3.14']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy --strict src
+      - run: pytest
+      - run: pip-audit --skip-editable
