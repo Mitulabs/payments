@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mitulabs-payments"
 dynamic = ["version"]
-description = "Charge AI agents for API routes through Mitu, with standard MPP and x402 payments."
+description = "Monetize HTTP APIs with machine payments over MPP and x402."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
