@@ -2,7 +2,7 @@ import { MituApiError } from './errors.js'
 import { isRecord } from './guards.js'
 
 export const PACKAGE_NAME = '@mitulabs/payments'
-export const PACKAGE_VERSION = '0.1.0'
+export const PACKAGE_VERSION = '0.1.1'
 export const USER_AGENT = `mitulabs-payments-js/${PACKAGE_VERSION}`
 
 export const TIMEOUT_MS = 10_000

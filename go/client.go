@@ -13,7 +13,7 @@ import (
 )
 
 // Version is the version of this SDK.
-const Version = "0.1.0"
+const Version = "0.1.1"
 
 const (
 	sdkName          = "github.com/mitulabs/payments/go@" + Version
