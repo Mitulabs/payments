@@ -2,8 +2,7 @@
 
 Server-side SDKs for monetizing APIs and digital services with machine payments. They put any HTTP endpoint behind a
 per-request payment that AI agents and other machine clients can pay with the open
-[Machine Payments Protocol](https://mpp.dev) (MPP) and [x402](https://x402.org) standards. Proceeds settle through
-Mitu in the merchant's local currency.
+[Machine Payments Protocol](https://mpp.dev) (MPP) and [x402](https://x402.org) standards.
 
 The SDKs are a thin integration layer over Mitu's payment API. Mitu issues the payment challenges, settles each
 payment on chain as the facilitator, locks the exchange rate, and notifies the merchant. The SDKs create a payment for

@@ -1,8 +1,7 @@
 # @mitulabs/payments
 
 TypeScript SDK for monetizing HTTP APIs with machine payments. It requires payment per request through the
-[Machine Payments Protocol](https://mpp.dev) (MPP) and [x402](https://x402.org), and settles proceeds through Mitu in
-the merchant's currency.
+[Machine Payments Protocol](https://mpp.dev) (MPP) and [x402](https://x402.org).
 
 The SDK is a thin layer over Mitu's payment flow. Mitu issues the payment challenges, verifies and settles each payment
 on chain, locks the exchange rate when the payment is created and sends the `payment.completed` webhook. The SDK puts
@@ -166,8 +165,8 @@ Handlers receive a `Payment`, or `null` when the request was served without paym
 | `paymentMethod` | Payment method as reported by Mitu |
 
 A settled payment is final. If the handler fails after payment, retry the operation or issue a refund; do not request
-payment again. Persist results keyed by `id` to make fulfilment idempotent. Proceeds settle through Mitu, which
-notifies your webhook endpoint of each completed payment.
+payment again. Persist results keyed by `id` to make fulfilment idempotent. Mitu notifies your webhook endpoint of
+each completed payment.
 
 ## Error handling
 

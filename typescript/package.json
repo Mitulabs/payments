@@ -1,7 +1,7 @@
 {
   "name": "@mitulabs/payments",
   "version": "0.1.0",
-  "description": "Monetize HTTP APIs with machine payments over MPP and x402. Proceeds settle through Mitu.",
+  "description": "Monetize HTTP APIs with machine payments over MPP and x402.",
   "license": "MIT",
   "repository": {
     "type": "git",
