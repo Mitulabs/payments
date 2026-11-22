@@ -29,9 +29,6 @@ type Options struct {
 	// DefaultCurrency is the currency of a Price that names none, such as
 	// "USD" or "NGN". It defaults to "USD".
 	DefaultCurrency string
-	// BaseURL overrides the Mitu API origin. It must use https unless it
-	// points at this machine.
-	BaseURL string
 	// HTTPClient makes the calls to Mitu. It defaults to a new http.Client.
 	// Redirects are never followed, and every call is bounded by a timeout.
 	HTTPClient *http.Client
@@ -56,7 +53,7 @@ func New(ctx context.Context, opts Options) (*Mitu, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	_, baseURL, err := resolveEnvironment(opts.APIKey, opts.BaseURL)
+	baseURL, err := resolveBaseURL(opts.APIKey)
 	if err != nil {
 		return nil, err
 	}

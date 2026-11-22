@@ -1,6 +1,7 @@
 // Package mitutest fakes Mitu for tests: its payments API and the agent_url
-// each payment is paid at, on two httptest servers, with helpers that answer
-// its 402 the way MPP and x402 clients do.
+// each payment is paid at, on two httptest servers reached through an
+// http.Client that routes Mitu's hosts to them, with helpers that answer its
+// 402 the way MPP and x402 clients do.
 package mitutest
 
 import (
@@ -21,9 +22,13 @@ import (
 // APIKey is the key the fake API accepts.
 const APIKey = "sk_test_abcdefghijklmnop"
 
+// AgentHost is the host of the agent_url the fake gives each payment.
+const AgentHost = "agent.mitu.test"
+
 // Call is a request the fake received.
 type Call struct {
-	Agent  bool // sent to agent_url rather than the API
+	Agent  bool   // sent to agent_url rather than the API
+	Host   string // the host the SDK addressed
 	Method string
 	Path   string
 	Header http.Header
@@ -55,6 +60,8 @@ type Fake struct {
 	API   *httptest.Server
 	Agent *httptest.Server
 
+	transport *http.Transport
+
 	mu       sync.Mutex
 	calls    []Call
 	payments map[string]*Payment
@@ -65,23 +72,33 @@ type Fake struct {
 // New starts a Fake, closed when the test ends.
 func New(t testing.TB) *Fake {
 	t.Helper()
-	f := &Fake{payments: map[string]*Payment{}}
+	f := &Fake{payments: map[string]*Payment{}, transport: &http.Transport{}}
 	f.API = httptest.NewServer(http.HandlerFunc(f.serveAPI))
 	f.Agent = httptest.NewServer(http.HandlerFunc(f.serveAgent))
 	t.Cleanup(func() {
+		f.transport.CloseIdleConnections()
 		f.API.Close()
 		f.Agent.Close()
 	})
 	return f
 }
 
-// Mitu returns a Mitu using the fake, with APIKey unless opts names a key.
+// Client returns an http.Client that sends requests for api.mitu.ai and
+// sandbox.mitu.ai to the fake API, and for AgentHost to the fake agent_url
+// host, keeping the addressed host in the Host header. It refuses any other
+// host, so a test never reaches the network.
+func (f *Fake) Client() *http.Client {
+	return &http.Client{Transport: roundTripFunc(f.route)}
+}
+
+// Mitu returns a Mitu using the fake through Client, with APIKey unless opts
+// names a key.
 func (f *Fake) Mitu(t testing.TB, opts mitu.Options) *mitu.Mitu {
 	t.Helper()
 	if opts.APIKey == "" {
 		opts.APIKey = APIKey
 	}
-	opts.BaseURL = f.API.URL
+	opts.HTTPClient = f.Client()
 	m, err := mitu.New(t.Context(), opts)
 	if err != nil {
 		t.Fatal(err)
@@ -122,11 +139,35 @@ func (f *Fake) Payments() []Payment {
 	return out
 }
 
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return fn(r) }
+
+func (f *Fake) route(r *http.Request) (*http.Response, error) {
+	var server *httptest.Server
+	switch r.URL.Host {
+	case "api.mitu.ai", "sandbox.mitu.ai":
+		server = f.API
+	case AgentHost:
+		server = f.Agent
+	default:
+		return nil, fmt.Errorf("mitutest: request to unexpected host %q", r.URL.Host)
+	}
+	if r.URL.Scheme != "https" {
+		return nil, fmt.Errorf("mitutest: request to %s over %s", r.URL.Host, r.URL.Scheme)
+	}
+	out := r.Clone(r.Context())
+	out.Host = r.URL.Host
+	out.URL.Scheme = "http"
+	out.URL.Host = server.Listener.Addr().String()
+	return f.transport.RoundTrip(out)
+}
+
 func paymentID(n int) string { return fmt.Sprintf("pmt_%020d", n) }
 
 func (f *Fake) record(agent bool, r *http.Request) []byte {
 	body, _ := io.ReadAll(r.Body)
-	f.calls = append(f.calls, Call{Agent: agent, Method: r.Method, Path: r.URL.Path, Header: r.Header.Clone(), Body: body})
+	f.calls = append(f.calls, Call{Agent: agent, Host: r.Host, Method: r.Method, Path: r.URL.Path, Header: r.Header.Clone(), Body: body})
 	return body
 }
 
@@ -144,7 +185,7 @@ func (f *Fake) serveAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
-	case r.Method == http.MethodPost && r.URL.Path == "/v1/public/payments":
+	case r.Method == http.MethodPost && r.URL.Path == "/v1/payments":
 		var in struct {
 			Amount      json.Number       `json:"amount"`
 			Currency    string            `json:"currency"`
@@ -167,12 +208,12 @@ func (f *Fake) serveAPI(w http.ResponseWriter, r *http.Request) {
 			Description: in.Description,
 			ExpiresAt:   in.ExpiresAt,
 			Metadata:    in.Metadata,
-			AgentURL:    f.Agent.URL + "/pay/" + id,
+			AgentURL:    "https://" + AgentHost + "/pay/" + id,
 		}
 		f.payments[id] = p
 		writeJSON(w, http.StatusCreated, map[string]any{"message": "Payment created", "data": p})
-	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/v1/public/payments/"):
-		p, ok := f.payments[strings.TrimPrefix(r.URL.Path, "/v1/public/payments/")]
+	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/v1/payments/"):
+		p, ok := f.payments[strings.TrimPrefix(r.URL.Path, "/v1/payments/")]
 		if !ok {
 			writeJSON(w, http.StatusNotFound, map[string]string{"message": "Payment not found"})
 			return

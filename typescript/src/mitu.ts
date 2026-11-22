@@ -1,6 +1,6 @@
 import { callAgentUrl, challengeOf, refusalOf, settled, unavailable } from './core/agent.js'
 import { readCredential, type Credential } from './core/credential.js'
-import { assertApiKey, resolveBaseUrl } from './core/environment.js'
+import { apiUrlFor, assertApiKey } from './core/environment.js'
 import { MituApiError } from './core/errors.js'
 import { createHttpClient, PACKAGE_NAME, PACKAGE_VERSION } from './core/http.js'
 import { silentLogger, type Logger } from './core/logger.js'
@@ -16,8 +16,6 @@ export interface CreateMituOptions {
   apiKey: string
   /** The currency of a price that names none. Defaults to `USD`. */
   defaultCurrency?: string
-  /** The Mitu API base URL. Must be HTTPS unless it points at this machine. */
-  baseUrl?: string
   /** Receives the package's logs, which never contain keys, credentials, receipts or bodies. */
   logger?: Logger
   /** Replaces the global `fetch` for calls to Mitu. */
@@ -40,10 +38,10 @@ interface Route {
   path: string
 }
 
-export function createMitu({ apiKey, defaultCurrency = 'USD', baseUrl, logger = silentLogger, fetch = globalThis.fetch }: CreateMituOptions): Mitu {
+export function createMitu({ apiKey, defaultCurrency = 'USD', logger = silentLogger, fetch = globalThis.fetch }: CreateMituOptions): Mitu {
   assertApiKey(apiKey)
   const currency = currencyCode(defaultCurrency)
-  const payments = createPayments(createHttpClient({ apiKey, baseUrl: resolveBaseUrl(baseUrl), fetch }))
+  const payments = createPayments(createHttpClient({ apiKey, baseUrl: apiUrlFor(apiKey), fetch }))
 
   async function challenge(price: ResolvedPrice, route: Route): Promise<Response> {
     const payment = await payments.create({

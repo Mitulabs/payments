@@ -7,7 +7,7 @@ import type { Logger } from '../../src/core/logger.js'
 import { createMitu, type CreateMituOptions } from '../../src/mitu.js'
 
 export const API_KEY = 'sk_test_0123456789abcdef0123456789abcdef'
-export const BASE_URL = 'https://api.mitu.test/economy'
+export const BASE_URL = 'https://sandbox.mitu.ai'
 export const AGENT_ORIGIN = 'https://agent.mitu.test'
 export const TX_HASH = '0x5e771ed'
 export const MPP_RECEIPT = 'mpp-receipt-value'
@@ -95,7 +95,7 @@ export function fakeMitu({ settle = paid, apiDown }: FakeMituOptions = {}) {
     if (url.href.startsWith(BASE_URL)) {
       if (apiDown === 'unreachable') throw new TypeError('fetch failed')
       if (apiDown) return new Response('down', { status: apiDown })
-      return api(method, url.pathname.slice(new URL(BASE_URL).pathname.length), body)
+      return api(method, url.pathname, body)
     }
     if (url.origin === AGENT_ORIGIN) {
       if (agentDown === 'unreachable') throw new TypeError('fetch failed')
@@ -109,7 +109,7 @@ export function fakeMitu({ settle = paid, apiDown }: FakeMituOptions = {}) {
   })
 
   function api(method: string, path: string, body: unknown): Response {
-    if (method === 'POST' && path === '/v1/public/payments' && isRecord(body)) {
+    if (method === 'POST' && path === '/v1/payments' && isRecord(body)) {
       const payment: StoredPayment = {
         id: `pmt_${String(payments.size + 1).padStart(20, '0')}`,
         amount: Number(body.amount).toFixed(2),
@@ -122,7 +122,7 @@ export function fakeMitu({ settle = paid, apiDown }: FakeMituOptions = {}) {
       payments.set(payment.id, payment)
       return Response.json({ message: 'Payment created', data: view(payment) }, { status: 201 })
     }
-    const id = /^\/v1\/public\/payments\/([^/]+)$/.exec(path)?.[1]
+    const id = /^\/v1\/payments\/([^/]+)$/.exec(path)?.[1]
     const payment = id && payments.get(decodeURIComponent(id))
     if (method === 'GET' && payment) return Response.json({ message: 'Payment retrieved', data: view(payment) })
     return Response.json({ message: 'Payment not found', error: 'Not Found' }, { status: 404 })
@@ -248,5 +248,5 @@ export function recordingLogger() {
 }
 
 export function testMitu(mitu: FakeMitu, options: Partial<CreateMituOptions> = {}) {
-  return createMitu({ apiKey: API_KEY, baseUrl: BASE_URL, fetch: mitu.fetch, ...options })
+  return createMitu({ apiKey: API_KEY, fetch: mitu.fetch, ...options })
 }

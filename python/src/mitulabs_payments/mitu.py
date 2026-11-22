@@ -41,13 +41,12 @@ class Mitu:
         api_key: str,
         *,
         default_currency: str = "USD",
-        base_url: str | None = None,
         transport: Transport | None = None,
     ) -> None:
-        resolved = resolve_environment(api_key, base_url)
+        resolved = resolve_environment(api_key)
         self.environment = resolved.environment
         self.default_currency = parse_currency(default_currency)
-        self._api = MituApi(api_key, resolved.base_url, transport=transport)
+        self._api = MituApi(api_key, resolved.api_url, transport=transport)
 
     def __repr__(self) -> str:
         return f"Mitu(environment={self.environment!r})"

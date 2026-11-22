@@ -10,9 +10,10 @@ from wire import MPP_CHALLENGE, PAYMENT_ID
 from mitulabs_payments import __version__
 
 API_KEY = "sk_test_" + "a1" * 24
-API_PREFIX = "/economy/"
-PAYMENTS_PATH = "/economy/v1/public/payments"
-AGENT_ORIGIN = "https://api.mitu.ai"
+API_HOSTS = frozenset({"sandbox.mitu.ai", "api.mitu.ai"})
+AGENT_HOST = "pay.mitu.test"
+AGENT_ORIGIN = f"https://{AGENT_HOST}"
+PAYMENTS_PATH = "/v1/payments"
 TX_HASH = "0x" + "9f" * 32
 RECEIPT = "eyJzdGF0dXMiOiJzdWNjZXNzIn0"
 X402_RECEIPT = "eyJzdWNjZXNzIjp0cnVlfQ=="
@@ -72,15 +73,18 @@ class FakeMitu:
 
     @property
     def agent_requests(self) -> list[httpx.Request]:
-        return self.sent("GET", "/pay/")
+        return [request for request in self.requests if request.url.host == AGENT_HOST]
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         if self.down:
             raise self.down("Mitu is down", request=request)
-        if request.url.path.startswith(API_PREFIX):
-            return self._api(request)
-        return self._agent(request)
+        match request.url.host, request.url.path:
+            case host, path if host in API_HOSTS and path.startswith(PAYMENTS_PATH):
+                return self._api(request)
+            case host, _ if host == AGENT_HOST:
+                return self._agent(request)
+        return httpx.Response(404, json={"error": "Not Found"})
 
     def _api(self, request: httpx.Request) -> httpx.Response:
         if request.headers.get("x-api-key") != API_KEY:

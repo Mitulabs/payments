@@ -10,6 +10,8 @@ import flask
 import httpx
 import pytest
 from fake_mitu import (
+    AGENT_HOST,
+    AGENT_ORIGIN,
     API_KEY,
     CHALLENGE_BODY,
     PAYMENT_REQUIRED,
@@ -84,7 +86,7 @@ def test_unpaid_request_creates_a_payment_and_passes_mitus_402_through(
     [create] = fake.sent("POST", PAYMENTS_PATH)
     assert create.headers["x-api-key"] == API_KEY
     [challenge] = fake.agent_requests
-    assert str(challenge.url) == f"https://api.mitu.ai/pay/{fake.payments.popitem()[0]}"
+    assert str(challenge.url) == f"{AGENT_ORIGIN}/pay/{fake.payments.popitem()[0]}"
     assert "x-api-key" not in challenge.headers
     assert "authorization" not in challenge.headers
     assert "cookie" not in challenge.headers
@@ -126,7 +128,7 @@ def test_paid_mpp_request_is_checked_forwarded_and_served_with_the_receipt(
     assert lookup.url.path == f"{PAYMENTS_PATH}/{PAYMENT_ID}"
     assert lookup.headers["x-api-key"] == API_KEY
     [paying] = fake.agent_requests
-    assert str(paying.url) == f"https://api.mitu.ai/pay/{PAYMENT_ID}"
+    assert str(paying.url) == f"{AGENT_ORIGIN}/pay/{PAYMENT_ID}"
     assert paying.headers["authorization"] == MPP_AUTHORIZATION
     assert not {"x-api-key", "cookie", "x-merchant"} & set(paying.headers)
     assert fake.created == []
@@ -324,9 +326,15 @@ def test_unreadable_payment_from_mitu_answers_503(
     assert client.get("/report").status_code == 503
 
 
-def test_agent_url_off_https_is_never_called(client: FlaskClient, fake: FakeMitu) -> None:
+@pytest.mark.parametrize(
+    "agent_url",
+    [f"http://{AGENT_HOST}/pay/{PAYMENT_ID}", f"http://localhost/pay/{PAYMENT_ID}", "https://"],
+)
+def test_agent_url_off_https_is_never_called(
+    client: FlaskClient, fake: FakeMitu, agent_url: str
+) -> None:
     fake.add_payment()
-    fake.payments[PAYMENT_ID]["agent_url"] = f"http://api.mitu.ai/pay/{PAYMENT_ID}"
+    fake.payments[PAYMENT_ID]["agent_url"] = agent_url
 
     response = client.get("/report", headers=MPP)
 
@@ -391,7 +399,7 @@ def test_api_key_and_credentials_are_never_logged_or_sent_to_agent_url(
     secrets = (API_KEY, MPP_AUTHORIZATION.split()[1], X402_PAYMENT_SIGNATURE, RECEIPT)
     assert caplog.records
     assert not any(secret in caplog.text for secret in secrets)
-    to_agent = [r for r in fake.requests if not r.url.path.startswith("/economy/")]
+    to_agent = [r for r in fake.requests if r.url.host == AGENT_HOST]
     assert to_agent
     assert all(
         API_KEY not in json.dumps(dict(request.headers)) and "x-api-key" not in request.headers

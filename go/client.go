@@ -67,11 +67,11 @@ func (c *client) createPayment(ctx context.Context, body createPayment) (payment
 	if err != nil {
 		return payment{}, fmt.Errorf("mitu: encoding payment: %w", err)
 	}
-	return c.payment(ctx, http.MethodPost, "/v1/public/payments", b)
+	return c.payment(ctx, http.MethodPost, "/v1/payments", b)
 }
 
 func (c *client) getPayment(ctx context.Context, id string) (payment, error) {
-	return c.payment(ctx, http.MethodGet, "/v1/public/payments/"+url.PathEscape(id), nil)
+	return c.payment(ctx, http.MethodGet, "/v1/payments/"+url.PathEscape(id), nil)
 }
 
 func (c *client) payment(ctx context.Context, method, path string, body []byte) (payment, error) {
@@ -143,14 +143,14 @@ func (c *client) do(ctx context.Context, method, target string, header http.Head
 	return &response{status: resp.StatusCode, header: resp.Header, body: data}, nil
 }
 
-// checkAgentURL accepts an absolute https URL, or http on this machine.
+// checkAgentURL accepts an absolute https URL.
 func checkAgentURL(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" || u.User != nil {
 		return errors.New("not an absolute URL")
 	}
-	if u.Scheme == "https" || (u.Scheme == "http" && isLocal(u.Hostname())) {
-		return nil
+	if u.Scheme != "https" {
+		return errors.New("not https")
 	}
-	return errors.New("not https")
+	return nil
 }
