@@ -1,0 +1,103 @@
+{
+  "name": "@mitulabs/payments",
+  "version": "0.1.0",
+  "description": "Monetize HTTP APIs with machine payments over MPP and x402. Proceeds settle through Mitu.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mitulabs/payments.git",
+    "directory": "typescript"
+  },
+  "homepage": "https://github.com/Mitulabs/payments/tree/main/typescript#readme",
+  "bugs": {
+    "url": "https://github.com/Mitulabs/payments/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.12"
+  },
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./express": {
+      "types": "./dist/express.d.ts",
+      "import": "./dist/express.js",
+      "require": "./dist/express.cjs"
+    },
+    "./fetch": {
+      "types": "./dist/fetch.d.ts",
+      "import": "./dist/fetch.js",
+      "require": "./dist/fetch.cjs"
+    },
+    "./hono": {
+      "types": "./dist/hono.d.ts",
+      "import": "./dist/hono.js",
+      "require": "./dist/hono.cjs"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js",
+      "require": "./dist/next.cjs"
+    },
+    "./elysia": {
+      "types": "./dist/elysia.d.ts",
+      "import": "./dist/elysia.js",
+      "require": "./dist/elysia.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run test/unit",
+    "test:integration": "vitest run test/integration",
+    "audit": "npm audit --omit=dev --audit-level=high"
+  },
+  "peerDependencies": {
+    "elysia": ">=1.2.0",
+    "express": ">=5",
+    "hono": ">=4.12.25"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    },
+    "elysia": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "9.36.0",
+    "@types/express": "5.0.6",
+    "@types/node": "22.18.6",
+    "@vitest/coverage-v8": "3.2.4",
+    "@x402/core": "2.32.0",
+    "@x402/evm": "2.32.0",
+    "elysia": "1.4.30",
+    "eslint": "9.36.0",
+    "express": "5.3.0",
+    "hono": "4.13.14",
+    "mppx": "0.21.1",
+    "tsup": "8.5.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "3.2.4"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

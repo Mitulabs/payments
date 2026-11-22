@@ -1,0 +1,35 @@
+name: typescript
+
+on:
+  pull_request:
+    paths: [typescript/**, .github/workflows/typescript.yml]
+  push:
+    branches: [main]
+    paths: [typescript/**, .github/workflows/typescript.yml]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: typescript
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: typescript/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run audit
+      - run: npm run build
