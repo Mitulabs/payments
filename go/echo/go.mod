@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/labstack/echo/v5 v5.4.7
-	github.com/mitulabs/payments/go v0.1.0
+	github.com/mitulabs/payments/go v0.1.1
 )
 
 require (
